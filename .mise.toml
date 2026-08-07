@@ -1,0 +1,82 @@
+[tools]
+cmake = "latest"
+ninja = "latest"
+python = "3.12"
+pixi = "latest"
+"pipx:aqtinstall" = "latest"
+gsudo = "latest"
+
+[vars]
+win_drive = "D:"
+win_vs_path = "{{vars.win_drive}}\\VS2022BuildTools"
+win_qt_install_dir = "{{vars.win_drive}}\\Qt"
+build_type = "Release"
+#build_type = "Debug"
+
+[tasks."qt:discover-version"]
+description = "Extract Qt version defined in project files (.ci/conda-win.yml)"
+run = "python scripts/get_qt_version.py"
+
+[tasks."vs:install"]
+description = "Install/update Visual Studio 2022 Build Tools with required C++ components"
+run_windows = """
+gsudo winget install --id Microsoft.VisualStudio.2022.BuildTools --override "--passive --config {{config_root}}\\.vsconfig --installPath {{vars.win_vs_path}}" --force
+"""
+run = "echo 'vs:install is only applicable on Windows'"
+
+[tasks."winsdk:install"]
+description = "Install Windows 11 SDK (rc.exe) using winget"
+run_windows = "gsudo winget install --id Microsoft.WindowsSDK.10.0.22621 --accept-source-agreements --accept-package-agreements"
+run = "echo 'winsdk:install is only applicable on Windows'"
+
+[tasks."qt:install"]
+description = "Discover Qt version from .ci/conda-win.yml and install via aqtinstall including qtwebsockets"
+run_windows = """
+powershell -Command "$ver = (python scripts/get_qt_version.py).Trim(); Write-Host 'Discovered Qt version:' $ver; aqt install-qt windows desktop $ver win64_msvc2022_64 -m qtwebsockets -O {{vars.win_qt_install_dir}}"
+"""
+run = """
+QT_VER=$(python3 scripts/get_qt_version.py)
+echo "Discovered Qt version: $QT_VER"
+aqt install-qt mac desktop $QT_VER clang_64 -m qtwebsockets -O ~/Qt
+"""
+
+[tasks."submodules:sync"]
+description = "Initialize and update all recursive Git submodules"
+run = "git submodule update --init --recursive"
+
+[tasks."build"]
+description = "Configure and build CloudCompare using Ninja"
+run_windows = "python scripts/build.py --drive {{vars.win_drive}} --vs-path {{vars.win_vs_path}} --build-type {{vars.build_type}} {{arg(name='type', default='')}}"
+run = """
+QT_VER=$(python3 scripts/get_qt_version.py)
+QT_PREFIX="$HOME/Qt/$QT_VER/macos"
+cmake -B build -G Ninja \
+  -DCMAKE_BUILD_TYPE={{vars.build_type}} \
+  -DCMAKE_PREFIX_PATH="$QT_PREFIX" \
+  -DCMAKE_INSTALL_PREFIX="build/install" \
+  -DPLUGIN_EXAMPLE_STANDARD=ON \
+  -DPLUGIN_STANDARD_QJSONRPC=ON .
+cmake --build build --parallel
+"""
+
+[tasks."package"]
+description = "Install/Package CloudCompare and plugins into a portable standalone directory"
+run_windows = "python scripts/build.py --drive {{vars.win_drive}} --vs-path {{vars.win_vs_path}} --build-type {{vars.build_type}} {{arg(name='type', default='')}}"
+run = """
+cmake --install build --prefix build/install
+"""
+
+[tasks."clean:build-artifacts"]
+description = "Run CMake/Ninja clean target to remove intermediate compiled objects without wiping CMake config cache"
+run_windows = "cmake --build D:\\CloudCompareBuild --target clean"
+run = "cmake --build build --target clean"
+
+[tasks."clean"]
+description = "Remove build and install output directories for Windows and macOS"
+run_windows = """
+powershell -Command "Remove-Item -Recurse -Force D:\\CloudCompareBuild, D:\\CloudCompareInstall -ErrorAction SilentlyContinue; Write-Host 'Cleaned D:\\CloudCompareBuild and D:\\CloudCompareInstall'"
+"""
+run = """
+rm -rf build
+echo "Cleaned build directory"
+"""
