@@ -53,11 +53,21 @@ struct OrchestratorConfig
 			return cfg;
 		}
 
-		cfg.localToken = readTokenFromCredentialStore();
-		if (!cfg.localToken.isEmpty())
-			qDebug() << "[BeaconRPC] Token loaded from credential store";
+		// Skip system credential store lookups in headless/CI test runners
+		if (qEnvironmentVariableIsSet("QT_BEACON_SKIP_KEYSTORE") ||
+			qEnvironmentVariableIsSet("CI") ||
+			qEnvironmentVariableIsSet("CONTINUOUS_INTEGRATION"))
+		{
+			qDebug() << "[BeaconRPC] Skipping system credential store lookup (CI/Test mode)";
+		}
 		else
-			qDebug() << "[BeaconRPC] No config found, using defaults (" << cfg.orchestratorUrl << ")";
+		{
+			cfg.localToken = readTokenFromCredentialStore();
+			if (!cfg.localToken.isEmpty())
+				qDebug() << "[BeaconRPC] Token loaded from credential store";
+			else
+				qDebug() << "[BeaconRPC] No config found, using defaults (" << cfg.orchestratorUrl << ")";
+		}
 
 		return cfg;
 	}

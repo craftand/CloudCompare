@@ -38,6 +38,11 @@ class TestOrchestratorConfig : public QObject
 	Q_OBJECT
 
 private slots:
+	void initTestCase()
+	{
+		qputenv("QT_BEACON_SKIP_KEYSTORE", "1");
+	}
+
 	void defaultUrlIsLocalhost()
 	{
 		OrchestratorConfig cfg;

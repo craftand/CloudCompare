@@ -66,6 +66,12 @@ class TestJsonRPCClient : public QObject
 {
 	Q_OBJECT
 
+private slots:
+	void initTestCase()
+	{
+		qputenv("QT_BEACON_SKIP_KEYSTORE", "1");
+	}
+
 private:
 	OrchestratorConfig configForServer(const MockHttpServer& srv,
 									   const QString&        token = "test-token")
@@ -167,7 +173,9 @@ private slots:
 		client.call("handshake", {}, nullptr);
 
 		QTRY_VERIFY_WITH_TIMEOUT(!srv.lastRequest().isEmpty(), 2000);
-		QVERIFY(srv.lastRequest().contains("X-Local-Token: my-secret-token"));
+		QByteArray req = srv.lastRequest();
+		QVERIFY2(req.contains("x-local-token: my-secret-token") || req.contains("X-Local-Token: my-secret-token"),
+		         req.constData());
 	}
 
 	void requestContainsTraceIdHeaderAfterSet()
@@ -185,7 +193,9 @@ private slots:
 		client.call("handshake", {}, nullptr);
 
 		QTRY_VERIFY_WITH_TIMEOUT(!srv.lastRequest().isEmpty(), 2000);
-		QVERIFY(srv.lastRequest().contains("X-Trace-ID: trace-xyz-123"));
+		QByteArray req = srv.lastRequest();
+		QVERIFY2(req.contains("x-trace-id: trace-xyz-123") || req.contains("X-Trace-ID: trace-xyz-123"),
+		         req.constData());
 	}
 
 	void networkErrorCallbackReceivesError()

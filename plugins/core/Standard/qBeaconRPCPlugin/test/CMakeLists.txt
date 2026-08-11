@@ -36,6 +36,7 @@ add_test(NAME TestJsonRPCResult COMMAND TestJsonRPCResult)
 add_executable(TestSseParser
     ${CMAKE_CURRENT_LIST_DIR}/TestSseParser.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/sseclient.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/sseclient.h
 )
 target_include_directories(TestSseParser PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../include
@@ -50,6 +51,7 @@ add_test(NAME TestSseParser COMMAND TestSseParser)
 add_executable(TestJsonRPCClient
     ${CMAKE_CURRENT_LIST_DIR}/TestJsonRPCClient.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/jsonrpcclient.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/jsonrpcclient.h
 )
 target_include_directories(TestJsonRPCClient PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../include
