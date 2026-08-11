@@ -122,9 +122,19 @@ jobs:
         run: cmake --install build --prefix build/install
 
       - name: Delete Old Artifacts
-        uses: geekyeggo/delete-one-night-stand-action@v1
-        with:
-          artifact_name: CloudCompare-${{ matrix.config.name }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          artifact_name="CloudCompare-${{ matrix.config.name }}"
+          gh api -H "Accept: application/vnd.github+json" \
+            /repos/${{ github.repository }}/actions/artifacts?per_page=100 \
+            --jq ".artifacts[] | select(.name == \"${artifact_name}\") | .id" | while read -r artifact_id; do
+              if [ -n "$artifact_id" ]; then
+                echo "Deleting artifact $artifact_id ($artifact_name)..."
+                gh api --method DELETE /repos/${{ github.repository }}/actions/artifacts/$artifact_id || true
+              fi
+            done
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
