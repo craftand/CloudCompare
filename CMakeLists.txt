@@ -1,5 +1,15 @@
 cmake_minimum_required( VERSION 3.10 )
 
+if(APPLE)
+	# macOS 14/15 SDK removed the deprecated AGL framework.
+	# Pre-define WrapOpenGL::WrapOpenGL target to prevent Qt 6.8's FindWrapOpenGL.cmake from adding -framework AGL.
+	if(NOT TARGET WrapOpenGL::WrapOpenGL)
+		add_library(WrapOpenGL::WrapOpenGL INTERFACE IMPORTED GLOBAL)
+		target_link_libraries(WrapOpenGL::WrapOpenGL INTERFACE "-framework OpenGL")
+		set(WrapOpenGL_FOUND ON CACHE BOOL "" FORCE)
+	endif()
+endif()
+
 project( CloudCompareProjects )
 
 # One shouldn't generate the BUILD project directly in the SOURCES folder!
@@ -30,7 +40,6 @@ endif()
 set( CMAKE_DEBUG_POSTFIX "d" )
 
 # Define target folders
-# (now that ccViewer can have its own plugins, qCC and ccViewer must fall in separate folders!
 if(WIN32 OR APPLE)
 	set( CLOUDCOMPARE_DEST_FOLDER CloudCompare )
 	set( CCVIEWER_DEST_FOLDER ccViewer )
