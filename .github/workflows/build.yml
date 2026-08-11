@@ -76,6 +76,7 @@ jobs:
             -B build \
             -G "${{ matrix.config.generator }}" \
             -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=build/install \
             -DCMAKE_PREFIX_PATH="$CONDA_LIB_DIR" \
             -DEIGEN_ROOT_DIR="$EIGEN_ROOT_DIR" \
             -DPLUGIN_EXAMPLE_GL=ON \
