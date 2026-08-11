@@ -17,10 +17,6 @@
 [submodule "plugins/core/Standard/qMasonry"]
 	path = plugins/core/Standard/qMasonry
 	url = https://github.com/CyberbuildLab/masonry-cc
-[submodule "plugins/core/Standard/qJSonRPCPlugin"]
-	path = plugins/core/Standard/qJSonRPCPlugin
-	url = https://github.com/craftand/qJSonRPCPlugin.git
-	branch = main
 [submodule "plugins/core/Standard/qCanupo/contrib/dlib"]
 	path = plugins/core/Standard/qCanupo/contrib/dlib
 	url = https://github.com/davisking/dlib.git

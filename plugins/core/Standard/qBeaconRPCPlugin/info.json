@@ -1,0 +1,19 @@
+{
+    "type": "Standard",
+    "name": "Beacon RPC",
+    "icon": "images/icon.png",
+    "description": "Beacon RPC Plugin for CloudCompare integration.",
+    "authors": [
+        {
+            "name": "Beacon Team",
+            "email": ""
+        }
+    ],
+    "maintainers": [
+        {
+            "name": "Beacon Team",
+            "email": ""
+        }
+    ],
+    "references": []
+}
