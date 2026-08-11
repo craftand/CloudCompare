@@ -10,6 +10,12 @@ if ( PLUGIN_STANDARD_QBEACONRPC )
 	find_package(Qt6 COMPONENTS Network REQUIRED)
 	target_link_libraries(${PROJECT_NAME} Qt6::Core Qt6::Network)
 
+	if (APPLE)
+		find_library(SECURITY_FRAMEWORK Security)
+		find_library(COREFOUNDATION_FRAMEWORK CoreFoundation)
+		target_link_libraries(${PROJECT_NAME} ${SECURITY_FRAMEWORK} ${COREFOUNDATION_FRAMEWORK})
+	endif()
+
 	add_subdirectory( include )
 	add_subdirectory( src )
 

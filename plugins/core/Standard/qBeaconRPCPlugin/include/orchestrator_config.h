@@ -11,6 +11,7 @@
 #  include <windows.h>
 #  include <wincred.h>
 #elif defined(__APPLE__)
+#  include <CoreFoundation/CoreFoundation.h>
 #  include <Security/Security.h>
 #endif
 
@@ -75,7 +76,46 @@ private:
 			return token;
 		}
 #elif defined(__APPLE__)
-		Q_UNUSED(0);
+		CFStringRef serviceRef = CFSTR("BeaconCADOrchestrator");
+		CFStringRef accountRef = CFSTR("local_token");
+
+		const void* keys[] = {
+			kSecClass,
+			kSecAttrService,
+			kSecAttrAccount,
+			kSecReturnData,
+			kSecMatchLimit
+		};
+
+		const void* values[] = {
+			kSecClassGenericPassword,
+			serviceRef,
+			accountRef,
+			kCFBooleanTrue,
+			kSecMatchLimitOne
+		};
+
+		CFDictionaryRef query = CFDictionaryCreate(
+			kCFAllocatorDefault,
+			keys,
+			values,
+			5,
+			&kCFTypeDictionaryKeyCallBacks,
+			&kCFTypeDictionaryValueCallBacks
+		);
+
+		CFDataRef resultData = nullptr;
+		OSStatus status = SecItemCopyMatching(query, reinterpret_cast<CFTypeRef*>(&resultData));
+		CFRelease(query);
+
+		if (status == errSecSuccess && resultData != nullptr)
+		{
+			const char* bytes = reinterpret_cast<const char*>(CFDataGetBytePtr(resultData));
+			CFIndex length = CFDataGetLength(resultData);
+			QString token = QString::fromUtf8(bytes, static_cast<int>(length));
+			CFRelease(resultData);
+			return token;
+		}
 #endif
 		return {};
 	}

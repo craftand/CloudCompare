@@ -1,5 +1,10 @@
 find_package(Qt6 REQUIRED COMPONENTS Core Network Test)
 
+if (APPLE)
+    find_library(SECURITY_FRAMEWORK Security)
+    find_library(COREFOUNDATION_FRAMEWORK CoreFoundation)
+endif()
+
 add_executable(TestOrchestratorConfig
     ${CMAKE_CURRENT_LIST_DIR}/TestOrchestratorConfig.cpp
 )
@@ -10,6 +15,9 @@ target_link_libraries(TestOrchestratorConfig PRIVATE
     Qt6::Core
     Qt6::Test
 )
+if (APPLE)
+    target_link_libraries(TestOrchestratorConfig PRIVATE ${SECURITY_FRAMEWORK} ${COREFOUNDATION_FRAMEWORK})
+endif()
 add_test(NAME TestOrchestratorConfig COMMAND TestOrchestratorConfig)
 
 add_executable(TestJsonRPCResult
