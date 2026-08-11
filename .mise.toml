@@ -55,7 +55,8 @@ cmake -B build -G Ninja \
   -DCMAKE_PREFIX_PATH="$QT_PREFIX" \
   -DCMAKE_INSTALL_PREFIX="build/install" \
   -DPLUGIN_EXAMPLE_STANDARD=ON \
-  -DPLUGIN_STANDARD_QJSONRPC=ON .
+  -DPLUGIN_STANDARD_QBEACONRPC=ON \
+  -DBUILD_TESTING=ON .
 cmake --build build --parallel
 """
 
@@ -80,3 +81,10 @@ run = """
 rm -rf build
 echo "Cleaned build directory"
 """
+
+[tasks."test"]
+description = "Run CTest unit tests for CloudCompare and plugins"
+depends = ["build"]
+run_windows = "ctest --test-dir D:\\CloudCompareBuild --output-on-failure"
+run = "ctest --test-dir build --output-on-failure"
+
