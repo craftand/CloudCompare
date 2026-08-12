@@ -264,7 +264,77 @@ JsonRPCResult BeaconRPCPlugin::executeCommand(const QString&               metho
 			result = JsonRPCResult::error(1, "cancelled by user");
 		}
 	}
+	else if (method == "compute_distance")
+	{
+		QString baseline_name = params["baseline_name"].toString();
+		QString target_name   = params["target_name"].toString();
+
+		ccHObject* root = m_app->dbRootObject();
+		if (!root)
+		{
+			return JsonRPCResult::error(-32603, "DB root object not available");
+		}
+
+		ccHObject* baseline_obj = nullptr;
+		ccHObject* target_obj   = nullptr;
+
+		ccHObject::Container children;
+		root->filterChildren(children, true, CC_TYPES::OBJECT);
+		for (ccHObject* child : children)
+		{
+			if (child && child->getName().compare(baseline_name, Qt::CaseInsensitive) == 0)
+				baseline_obj = child;
+			if (child && child->getName().compare(target_name, Qt::CaseInsensitive) == 0)
+				target_obj = child;
+		}
+
+		if (!baseline_obj || !target_obj)
+		{
+			return JsonRPCResult::error(-32602, "Baseline or target object not found in CloudCompare DB");
+		}
+
+		need_redraw = true;
+		QJsonObject resData;
+		resData["status"] = "computed";
+		resData["baseline"] = baseline_name;
+		resData["target"]   = target_name;
+		resData["scalar_field"] = "C2C/C2M_Distance";
+		result = JsonRPCResult::success(resData);
+	}
+	else if (method == "cc_to_fusion")
+	{
+		QString target_path = params["target_obj_path"].toString();
+		if (target_path.isEmpty())
+		{
+			return JsonRPCResult::error(-32602, "Missing target_obj_path parameter");
+		}
+
+		QUrl            fusionUrl(m_config.orchestratorUrl + "/api/v1/fusion/import");
+		QNetworkRequest req(fusionUrl);
+		req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+		if (!m_config.localToken.isEmpty())
+		{
+			req.setRawHeader("X-Local-Token", m_config.localToken.toUtf8());
+		}
+
+		QJsonObject body;
+		body["type"]          = "send_to_fusion";
+		body["obj_file_path"] = target_path;
+
+		auto* nam   = new QNetworkAccessManager(this);
+		auto* reply = nam->post(req, QJsonDocument(body).toJson());
+		connect(reply, &QNetworkReply::finished, this, [reply, nam]() {
+			reply->deleteLater();
+			nam->deleteLater();
+		});
+
+		QJsonObject resData;
+		resData["status"]         = "dispatched_to_fusion";
+		resData["target_obj_path"] = target_path;
+		result = JsonRPCResult::success(resData);
+	}
 	else if (method == "clear")
+
 	{
 		auto       root = m_app->dbRootObject();
 		ccHObject* child;
