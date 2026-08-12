@@ -46,26 +46,23 @@ run = "git submodule update --init --recursive"
 
 [tasks."build"]
 description = "Configure and build CloudCompare using Ninja"
-run_windows = "python scripts/build.py --drive {{vars.win_drive}} --vs-path {{vars.win_vs_path}} --build-type {{vars.build_type}} {{arg(name='type', default='')}}"
-run = """
-QT_VER=$(python3 scripts/get_qt_version.py)
-QT_PREFIX="$HOME/Qt/$QT_VER/macos"
-cmake -B build -G Ninja \
-  -DCMAKE_BUILD_TYPE={{vars.build_type}} \
-  -DCMAKE_PREFIX_PATH="$QT_PREFIX" \
-  -DCMAKE_INSTALL_PREFIX="build/install" \
-  -DPLUGIN_EXAMPLE_STANDARD=ON \
-  -DPLUGIN_STANDARD_QBEACONRPC=ON \
-  -DBUILD_TESTING=ON .
-cmake --build build --parallel
-"""
+usage = '''
+arg "[type]" help="Build type (Release, Debug, RelWithDebInfo)" default="Release" {
+  choices "Release" "Debug" "RelWithDebInfo"
+}
+'''
+run_windows = "python scripts/build.py --drive {{vars.win_drive}} --vs-path {{vars.win_vs_path}} --build-type {{usage.type}}"
+run = "python3 scripts/build.py --build-type {{usage.type}}"
 
 [tasks."package"]
 description = "Install/Package CloudCompare and plugins into a portable standalone directory"
-run_windows = "python scripts/build.py --drive {{vars.win_drive}} --vs-path {{vars.win_vs_path}} --build-type {{vars.build_type}} {{arg(name='type', default='')}}"
-run = """
-cmake --install build --prefix build/install
-"""
+usage = '''
+arg "[type]" help="Build type (Release, Debug, RelWithDebInfo)" default="Release" {
+  choices "Release" "Debug" "RelWithDebInfo"
+}
+'''
+run_windows = "python scripts/build.py --drive {{vars.win_drive}} --vs-path {{vars.win_vs_path}} --build-type {{usage.type}}"
+run = "python3 scripts/build.py --build-type {{usage.type}}"
 
 [tasks."clean:build-artifacts"]
 description = "Run CMake/Ninja clean target to remove intermediate compiled objects without wiping CMake config cache"
