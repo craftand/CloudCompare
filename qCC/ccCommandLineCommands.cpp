@@ -639,59 +639,41 @@ CommandLoad::CommandLoad()
 {
 }
 
+constexpr char COMMAND_OPEN_SHIFT_ON_LOAD[] = "GLOBAL_SHIFT"; //!< Global shift
+
 bool CommandLoad::process(ccCommandLineInterface& cmd)
 {
-	if (cmd.arguments().empty())
-	{
-		return cmd.error(QObject::tr("Missing parameter: filename after \"-%1\"").arg(COMMAND_OPEN));
-	}
+
+	ccArgumentParser parser(cmd.arguments());
 
 	// optional parameters
 	int                                        skipLines = 0;
 	ccCommandLineInterface::GlobalShiftOptions globalShiftOptions;
 	bool                                       doNotCreateLabels = false;
 
-	while (!cmd.arguments().empty())
+	while (!parser.isEmpty())
 	{
-		QString argument = cmd.arguments().front();
-		if (ccCommandLineInterface::IsCommand(argument, COMMAND_OPEN_NO_LABEL))
+		if (parser.tryConsumeOption(COMMAND_OPEN_NO_LABEL))
 		{
-			// local option confirmed, we can move on
-			cmd.arguments().pop_front();
-
 			cmd.print(QObject::tr("Will not load labels"));
 
 			doNotCreateLabels = true;
 		}
-		if (ccCommandLineInterface::IsCommand(argument, COMMAND_OPEN_SKIP_LINES))
+		if (parser.tryConsumeOption(COMMAND_OPEN_SKIP_LINES))
 		{
-			// local option confirmed, we can move on
-			cmd.arguments().pop_front();
 
-			if (cmd.arguments().empty())
-			{
-				return cmd.error(QObject::tr("Missing parameter: number of lines after '%1'").arg(COMMAND_OPEN_SKIP_LINES));
-			}
-
-			bool ok;
-			skipLines = cmd.arguments().takeFirst().toInt(&ok);
-			if (!ok)
-			{
-				return cmd.error(QObject::tr("Invalid parameter: number of lines after '%1'").arg(COMMAND_OPEN_SKIP_LINES));
-			}
-
+			const auto maybeSkipLines = parser.takeInt(QObject::tr("number of lines"));
+			if (!maybeSkipLines)
+				return false;
+			skipLines = *maybeSkipLines;
 			cmd.print(QObject::tr("Will skip %1 lines").arg(skipLines));
 		}
-		else if (cmd.nextCommandIsGlobalShift())
+		else if (parser.tryConsumeOption(COMMAND_OPEN_SHIFT_ON_LOAD))
 		{
-			// local option confirmed, we can move on
-			cmd.arguments().pop_front();
-
-			if (!cmd.processGlobalShiftCommand(globalShiftOptions))
-			{
-				// error message already issued
+			const auto maybeGlobalShiftOptions = ccCommandLineInterface::ParseGlobalShiftOptions(parser);
+			if (!maybeGlobalShiftOptions)
 				return false;
-			}
+			globalShiftOptions = *maybeGlobalShiftOptions;
 		}
 		else
 		{
@@ -706,7 +688,11 @@ bool CommandLoad::process(ccCommandLineInterface& cmd)
 	AsciiFilter::SetNoLabelCreated(doNotCreateLabels);
 
 	// open specified file
-	QString filename(cmd.arguments().takeFirst());
+	if (parser.isEmpty())
+	{
+		return cmd.error(QObject::tr("Missing parameter: filename after \"-%1\"").arg(COMMAND_OPEN));
+	}
+	QString filename(parser.takeNext());
 	if (!cmd.importFile(filename, globalShiftOptions))
 	{
 		return false;
@@ -3256,9 +3242,14 @@ bool CommandSetGlobalShift::process(ccCommandLineInterface& cmd)
 		return cmd.error(QObject::tr("No loaded entity! (be sure to open one with \"-%1 [filename]\" before \"-%2\")").arg(COMMAND_OPEN, COMMAND_SET_GLOBAL_SHIFT));
 	}
 
+	ccArgumentParser parser(cmd.arguments());
+
+	const auto maybeGlobalShift = ccCommandLineInterface::ParseGlobalShiftOptions(parser);
+	if (!maybeGlobalShift)
+		return false;
+
 	// process globalshift options first
-	ccCommandLineInterface::GlobalShiftOptions globalShiftOptions;
-	cmd.processGlobalShiftCommand(globalShiftOptions);
+	ccCommandLineInterface::GlobalShiftOptions globalShiftOptions = *maybeGlobalShift;
 	// if it is not a valid global shift then an error msg already issued.
 	if (globalShiftOptions.mode != ccCommandLineInterface::GlobalShiftOptions::Mode::CUSTOM_GLOBAL_SHIFT)
 	{
@@ -3266,23 +3257,11 @@ bool CommandSetGlobalShift::process(ccCommandLineInterface& cmd)
 	}
 	CCVector3d newShift = globalShiftOptions.customGlobalShift;
 
-	// look for additional parameters
 	bool keepOrigFixed = false;
-	while (!cmd.arguments().empty())
+	if (parser.tryConsumeOption(COMMAND_SET_GLOBAL_SHIFT_KEEP_ORIG_FIXED))
 	{
-		QString argument = cmd.arguments().front();
-		if (ccCommandLineInterface::IsCommand(argument, COMMAND_SET_GLOBAL_SHIFT_KEEP_ORIG_FIXED))
-		{
-			// local option confirmed, pop that from front
-			cmd.arguments().pop_front();
-
-			keepOrigFixed = true;
-			cmd.print(QObject::tr("[%1] Option detected").arg(COMMAND_SET_GLOBAL_SHIFT_KEEP_ORIG_FIXED));
-		}
-		else
-		{
-			break;
-		}
+		keepOrigFixed = true;
+		cmd.print(QObject::tr("[%1] Option detected").arg(COMMAND_SET_GLOBAL_SHIFT_KEEP_ORIG_FIXED));
 	}
 
 	// create an entity vector
@@ -4775,17 +4754,19 @@ CommandCoordToSF::CommandCoordToSF()
 
 bool CommandCoordToSF::process(ccCommandLineInterface& cmd)
 {
-	if (cmd.arguments().empty())
-	{
-		return cmd.error(QObject::tr("Missing parameter after \"-%1\" (DIMENSION)").arg(COMMAND_COORD_TO_SF));
-	}
+	ccArgumentParser parser(cmd.arguments());
+
 	if (cmd.clouds().empty())
 	{
 		return cmd.error(QObject::tr("No point cloud available. Be sure to open or generate one first!"));
 	}
 
 	// dimension
-	QString dimStr = cmd.arguments().takeFirst().toUpper();
+	if (parser.isEmpty())
+	{
+		return cmd.error(QObject::tr("Missing parameter after \"-%1\" (DIMENSION)").arg(COMMAND_COORD_TO_SF));
+	}
+	QString dimStr = parser.takeNext().toUpper();
 	bool    exportDims[3]{dimStr == "X", dimStr == "Y", dimStr == "Z"};
 	if (!exportDims[0] && !exportDims[1] && !exportDims[2])
 	{
@@ -4939,7 +4920,9 @@ CommandCrop2D::CommandCrop2D()
 
 bool CommandCrop2D::process(ccCommandLineInterface& cmd)
 {
-	if (cmd.arguments().size() < 6)
+	ccArgumentParser parser(cmd.arguments());
+
+	if (parser.size() < 6)
 	{
 		return cmd.error(QObject::tr("Missing parameter(s) after \"-%1\" (ORTHO_DIM N X1 Y1 X2 Y2 ... XN YN)").arg(COMMAND_CROP_2D));
 	}
@@ -4956,61 +4939,37 @@ bool CommandCrop2D::process(ccCommandLineInterface& cmd)
 	unsigned char orthoDim     = 2;
 	bool          orderFlipped = false;
 	{
-		QString orthoDimStr = cmd.arguments().takeFirst().toUpper();
+		QString orthoDimStr = parser.takeNext().toUpper();
 		if (orthoDimStr.endsWith("FLIP"))
 		{
 			orderFlipped = true;
 			orthoDimStr  = orthoDimStr.left(orthoDimStr.size() - 4);
 		}
 
-		if (orthoDimStr == "X")
-		{
-			orthoDim = 0;
-		}
-		else if (orthoDimStr == "Y")
-		{
-			orthoDim = 1;
-		}
-		else if (orthoDimStr == "Z")
-		{
-			orthoDim = 2;
-		}
-		else
-		{
-			return cmd.error(QObject::tr("Invalid parameter: orthogonal dimension after \"-%1\" (expected: X, Y or Z)").arg(COMMAND_CROP_2D));
-		}
+		const auto maybeDim = ccArgumentParser::ParseEnum<unsigned>(orthoDimStr, {{"X", 0}, {"Y", 1}, {"Z", 2}}, QObject::tr("orthogonal dimension"));
+		if (!maybeDim)
+			return false;
+		orthoDim = *maybeDim;
 	}
 
 	ccCommandLineInterface::GlobalShiftOptions globalShiftOptions;
 	globalShiftOptions.mode = ccCommandLineInterface::GlobalShiftOptions::NO_GLOBAL_SHIFT;
-
-	if (cmd.arguments().size() >= 4)
+	if (parser.tryConsumeOption(COMMAND_OPEN_SHIFT_ON_LOAD))
 	{
-		if (cmd.nextCommandIsGlobalShift())
-		{
-			// local option confirmed, we can move on
-			cmd.arguments().pop_front();
-
-			if (!cmd.processGlobalShiftCommand(globalShiftOptions))
-			{
-				// error message already issued
-				return false;
-			}
-
-			cmd.setGlobalShiftOptions(globalShiftOptions);
-		}
+		const auto maybeGlobalShift = ccCommandLineInterface::ParseGlobalShiftOptions(parser);
+		if (!maybeGlobalShift)
+			return false;
+		globalShiftOptions = *maybeGlobalShift;
+		cmd.setGlobalShiftOptions(globalShiftOptions);
 	}
 
 	// number of vertices
-	bool     ok = true;
-	unsigned N  = 0;
+	unsigned N = 0;
 	{
-		QString countStr = cmd.arguments().takeFirst();
-		N                = countStr.toUInt(&ok);
-		if (!ok)
-		{
-			return cmd.error(QObject::tr("Invalid parameter: number of vertices for the 2D polyline after \"-%1\"").arg(COMMAND_CROP_2D));
-		}
+		const auto maybeCount = parser.takeUInt(QObject::tr("number of vertices"));
+		if (!maybeCount)
+			return false;
+		N = *maybeCount;
 	}
 
 	// now read the vertices
@@ -5034,25 +4993,21 @@ bool CommandCrop2D::process(ccCommandLineInterface& cmd)
 		CCVector3d PShift(0, 0, 0);
 		for (unsigned i = 0; i < N; ++i)
 		{
-			if (cmd.arguments().size() < 2)
+			if (parser.size() < 2)
 			{
 				return cmd.error(QObject::tr("Missing parameter(s): vertex #%1 data and following").arg(i + 1));
 			}
 
 			CCVector3d Pd(0, 0, 0);
 
-			QString coordStr = cmd.arguments().takeFirst();
-			Pd.u[Xread]      = coordStr.toDouble(&ok);
-			if (!ok)
-			{
-				return cmd.error(QObject::tr("Invalid parameter: X-coordinate of vertex #%1").arg(i + 1));
-			}
-			/*QString */ coordStr = cmd.arguments().takeFirst();
-			Pd.u[Yread]           = coordStr.toDouble(&ok);
-			if (!ok)
-			{
-				return cmd.error(QObject::tr("Invalid parameter: Y-coordinate of vertex #%1").arg(i + 1));
-			}
+			const auto maybeX = parser.takeDouble(QObject::tr("Invalid parameter: X-coordinate of vertex #%1").arg(i + 1));
+			const auto maybeY = parser.takeDouble(QObject::tr("Invalid parameter: Y-coordinate of vertex #%1").arg(i + 1));
+
+			if (!maybeX || !maybeY)
+				return false;
+
+			Pd.u[Xread] = *maybeX;
+			Pd.u[Yread] = *maybeY;
 
 			if (i == 0)
 			{
@@ -5082,19 +5037,9 @@ bool CommandCrop2D::process(ccCommandLineInterface& cmd)
 
 	// optional parameters
 	bool inside = true;
-	while (!cmd.arguments().empty())
+	if (parser.tryConsumeOption(COMMAND_CROP_OUTSIDE))
 	{
-		QString argument = cmd.arguments().front();
-		if (ccCommandLineInterface::IsCommand(argument, COMMAND_CROP_OUTSIDE))
-		{
-			// local option confirmed, we can move on
-			cmd.arguments().pop_front();
-			inside = false;
-		}
-		else
-		{
-			break;
-		}
+		inside = false;
 	}
 
 	// now we can crop the loaded cloud(s)
