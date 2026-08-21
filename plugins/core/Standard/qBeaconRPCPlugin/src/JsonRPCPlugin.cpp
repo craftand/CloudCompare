@@ -21,8 +21,9 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QUuid>
-#include <QTimer>
 #include <QDir>
+#include <QFile>
+#include <QTextStream>
 #include <cmath>
 
 // local
@@ -730,16 +731,66 @@ JsonRPCResult BeaconRPCPlugin::handleComputeDistance(const QMap<QString, QVarian
 		model3dPath = QDir::tempPath() + "/cloudcompare_heatmap_model.ply";
 	}
 
-	FileIOFilter::SaveParameters saveParams;
-	saveParams.alwaysDisplaySaveDialog = false;
-	CC_FILE_ERROR saveResult = FileIOFilter::SaveToFile(target_obj, model3dPath, saveParams, QString());
-	if (saveResult == CC_FERR_NO_ERROR)
+	QFile plyFile(model3dPath);
+	if (plyFile.open(QIODevice::WriteOnly | QIODevice::Text))
 	{
-		logInfo(QString("Exported 3D heatmap PLY model to: %1").arg(model3dPath));
+		ccGenericMesh* targetMesh = nullptr;
+		ccHObject::Container targetMeshes;
+		target_obj->filterChildren(targetMeshes, true, CC_TYPES::MESH);
+		if (!targetMeshes.empty())
+		{
+			targetMesh = static_cast<ccGenericMesh*>(targetMeshes.front());
+		}
+
+		unsigned plyVertCount = compCloud ? compCloud->size() : 0;
+		unsigned plyFaceCount = targetMesh ? targetMesh->size() : 0;
+
+		QTextStream out(&plyFile);
+		out << "ply\n";
+		out << "format ascii 1.0\n";
+		out << "element vertex " << plyVertCount << "\n";
+		out << "property float x\n";
+		out << "property float y\n";
+		out << "property float z\n";
+		out << "property uchar red\n";
+		out << "property uchar green\n";
+		out << "property uchar blue\n";
+		if (plyFaceCount > 0)
+		{
+			out << "element face " << plyFaceCount << "\n";
+			out << "property list uchar int vertex_indices\n";
+		}
+		out << "end_header\n";
+
+		for (unsigned i = 0; i < plyVertCount; ++i)
+		{
+			const CCVector3* P = compCloud->getPoint(i);
+			const ccColor::Rgb* rgb = compCloud->getPointScalarValueColor(i);
+			int r = rgb ? static_cast<int>(rgb->r) : 180;
+			int g = rgb ? static_cast<int>(rgb->g) : 180;
+			int b = rgb ? static_cast<int>(rgb->b) : 180;
+			out << P->x << " " << P->y << " " << P->z << " " << r << " " << g << " " << b << "\n";
+		}
+
+		if (targetMesh)
+		{
+			for (unsigned f = 0; f < plyFaceCount; ++f)
+			{
+				CCCoreLib::VerticesIndexes* vi = targetMesh->getTriangleVertIndexes(f);
+				if (vi)
+				{
+					out << "3 " << vi->i1 << " " << vi->i2 << " " << vi->i3 << "\n";
+				}
+			}
+		}
+
+		plyFile.close();
+		logInfo(QString("Exported 3D heatmap PLY model (%1 verts, %2 faces) to: %3")
+				.arg(plyVertCount).arg(plyFaceCount).arg(model3dPath));
 	}
 	else
 	{
-		logWarning(QString("Failed to export 3D heatmap PLY model (code %1)").arg(saveResult));
+		logWarning(QString("Failed to open file for 3D PLY export: %1").arg(model3dPath));
 	}
 
 	QJsonArray histogramArr;
