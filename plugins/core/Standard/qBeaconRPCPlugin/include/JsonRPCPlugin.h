@@ -1,5 +1,8 @@
 #pragma once
 
+#include <functional>
+#include <QHash>
+#include <QJsonObject>
 #include "ccStdPluginInterface.h"
 #include "jsonrpcclient.h"
 #include "sseclient.h"
@@ -22,9 +25,25 @@ public slots:
 	void onSseEvent(QJsonObject payload);
 
 private:
+	using MethodHandler = std::function<JsonRPCResult(const QMap<QString, QVariant>&)>;
+
+	void registerMethods();
 	void bootstrapAndHandshake();
 	JsonRPCResult executeCommand(const QString&               method,
 								 const QMap<QString, QVariant>& params);
+
+	// Dedicated Method Handlers
+	JsonRPCResult handleOpen(const QMap<QString, QVariant>& params);
+	JsonRPCResult handleCompareScans(const QMap<QString, QVariant>& params);
+	JsonRPCResult handleComputeDistance(const QMap<QString, QVariant>& params);
+	JsonRPCResult handleCcToFusion(const QMap<QString, QVariant>& params);
+	JsonRPCResult handleClear(const QMap<QString, QVariant>& params);
+	JsonRPCResult handleVersion(const QMap<QString, QVariant>& params);
+
+	// Console-first Logging Helpers
+	void logInfo(const QString& msg);
+	void logWarning(const QString& msg);
+	void logError(const QString& msg);
 
 	QString     recursiveName(ccHObject*);
 	ccHObject*  createParent(QString path);
@@ -36,4 +55,6 @@ private:
 	JsonRPCClient      m_rpcClient;
 	SseClient          m_sseClient;
 	QString            m_traceId;
+
+	QHash<QString, MethodHandler> m_methodHandlers;
 };
