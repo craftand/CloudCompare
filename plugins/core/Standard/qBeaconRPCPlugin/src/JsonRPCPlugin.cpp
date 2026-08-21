@@ -273,15 +273,15 @@ void BeaconRPCPlugin::onSseEvent(QJsonObject payload)
 	{
 		logInfo(QString("Command '%1' completed successfully").arg(method));
 
-		if (method == "compare_scans" && result.result.isObject())
+		if (method == "compare_scans" && result.result.canConvert<QVariantMap>())
 		{
-			QJsonObject compResult = result.result.toObject();
+			QJsonObject compResult = QJsonObject::fromVariantMap(result.result.toMap());
 			logInfo("Posting comparison metrics to Desktop Orchestrator...");
 			m_rpcClient.call("report_comparison_result", compResult, [this](JsonRPCResult r) {
 				if (!r.isError)
 				{
 					logInfo(QString("Inspection report generated successfully: %1")
-							.arg(r.result.toObject()["html_report"].toString()));
+							.arg(r.result.toMap()["html_report"].toString()));
 				}
 				else
 				{
@@ -732,7 +732,7 @@ JsonRPCResult BeaconRPCPlugin::handleComputeDistance(const QMap<QString, QVarian
 
 	FileIOFilter::SaveParameters saveParams;
 	saveParams.alwaysDisplaySaveDialog = false;
-	CC_FILE_ERROR saveResult = FileIOFilter::SaveToFile(target_obj, model3dPath, saveParams);
+	CC_FILE_ERROR saveResult = FileIOFilter::SaveToFile(target_obj, model3dPath, saveParams, QString());
 	if (saveResult == CC_FERR_NO_ERROR)
 	{
 		logInfo(QString("Exported 3D heatmap PLY model to: %1").arg(model3dPath));
